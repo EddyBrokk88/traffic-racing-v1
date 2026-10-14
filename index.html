@@ -1,0 +1,209 @@
+<!doctype html>
+
+<html lang="ru">
+
+<head>
+
+<meta charset="utf-8">
+
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+
+<meta name="theme-color" content="#10151b">
+
+<title>Top Down Traffic Racing</title>
+
+<style>
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#10151b;color:#eef7ff;font-family:system-ui,sans-serif;touch-action:none}
+
+#app{height:100dvh;display:flex;flex-direction:column;padding:7px;gap:6px;max-width:900px;margin:auto}
+
+header,#footer{display:flex;align-items:center;justify-content:space-between;gap:7px}
+
+h1{font-size:clamp(13px,3vw,22px);color:#47e9ff;margin:0}
+
+#stats{display:flex;gap:5px;font-size:12px}
+
+.stat{background:#172330;border:1px solid #2d5366;border-radius:8px;padding:5px}
+
+#gamewrap{position:relative;flex:1;min-height:0;border:1px solid #2d5366;border-radius:12px;overflow:hidden;background:#1c2b2a}
+
+canvas{width:100%;height:100%;display:block}
+
+#message{position:absolute;top:8px;left:8px;right:8px;text-align:center;background:#08111bcc;border:1px solid #4a7c8c;border-radius:8px;padding:6px;font-size:12px;pointer-events:none}
+
+#controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+.control{height:clamp(65px,13vh,100px);border-radius:16px;border:2px solid #397e91;background:linear-gradient(145deg,#1d3b4b,#101d2b);font-size:30px;font-weight:bold;color:#dffbff;touch-action:none}
+
+.control span{display:block;font-size:12px;color:#91dbe7}
+
+.control.active{background:#227f91;border-color:#8ff7ff;transform:translateY(2px)}
+
+#footer{font-size:11px;color:#91a8b8}
+
+#footer button{border:1px solid #31576b;border-radius:8px;background:#172330;color:white;padding:7px 12px}
+
+#overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#060b12c9;padding:18px;text-align:center}
+
+#overlay.hidden{display:none}
+
+.modal{max-width:350px;background:#101d2b;border:1px solid #47e9ff;border-radius:16px;padding:20px}
+
+.modal h2{color:#47e9ff}
+
+.modal button{background:#13394a;color:white;border:1px solid #5ceeff;border-radius:10px;padding:12px 22px;font-size:16px;font-weight:bold}
+
+@media(orientation:landscape){#controls{position:absolute;bottom:12px;left:12px;right:12px;pointer-events:none;grid-template-columns:130px 130px;justify-content:space-between}.control{pointer-events:auto;height:65px}#footer{position:absolute;bottom:3px;left:150px;right:150px}header{min-height:30px}}
+
+</style>
+
+</head>
+
+<body>
+
+<div id="app">
+
+<header><h1>▰ TRAFFIC RACING</h1><div id="stats"><div class="stat">SCORE <b id="score">0</b></div><div class="stat">BEST <b id="best">0</b></div></div></header>
+
+<div id="gamewrap">
+
+<canvas id="game"></canvas>
+
+<div id="message">Нажимай ◀ или ▶, чтобы менять полосу</div>
+
+<div id="overlay"><div class="modal"><h2 id="title">TRAFFIC RACING</h2><p id="desc">Уклоняйся от машин на четырёхполосной дороге. Управление — двумя кнопками внизу.</p><button id="start">НАЧАТЬ ГОНКУ</button></div></div>
+
+</div>
+
+<div id="controls"><button class="control" id="left">◀<span>ВЛЕВО</span></button><button class="control" id="right">▶<span>ВПРАВО</span></button></div>
+
+<div id="footer"><span>4 ПОЛОСЫ</span><button id="pause">Ⅱ ПАУЗА</button><span>Избегай машин</span></div>
+
+</div>
+
+<script>
+
+(()=>{
+
+const c=document.getElementById('game'),ctx=c.getContext('2d'),$=id=>document.getElementById(id);
+
+let w=400,h=700,dpr=1,lw=0,rx=0,lane=1.5,target=1.5,scroll=0,speed=270,score=0,best=0,traffic=[],spawn=0,running=false,paused=false,over=false,last=0;
+
+try{best=+(localStorage.getItem('trafficBest')||0)}catch(e){}
+
+$('best').textContent=best;
+
+const colors=['#ff4d6d','#ffd166','#44d7ff','#b68cff','#e9f3f7','#75f0a5'];
+
+function resize(){let r=c.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,2);c.width=Math.round(r.width*dpr);c.height=Math.round(r.height*dpr);w=c.width;h=c.height;lw=w*.16;rx=(w-lw*4)/2}
+
+function center(l){return rx+lw*(l+.5)}
+
+function rect(x,y,a,b,color,r=0){ctx.fillStyle=color;if(r){ctx.beginPath();ctx.roundRect(x,y,a,b,r);ctx.fill()}else ctx.fillRect(x,y,a,b)}
+
+function car(x,y,a,b,color,player=false){
+
+rect(x-a*.05,y-b*.46,a*1.1,b*.96,'#0006',a*.18);
+
+rect(x,y-b/2,a,b,color,a*.2);
+
+rect(x+a*.14,y-b*.29,a*.72,b*.25,player?'#a9f6ff':'#263b4c',a*.1);
+
+rect(x+a*.16,y+b*.04,a*.68,b*.22,player?'#154454':'#16222c',a*.08);
+
+rect(x+a*.08,y-b*.47,a*.22,b*.06,player?'#faffbd':'#ff455e');
+
+rect(x+a*.7,y-b*.47,a*.22,b*.06,player?'#faffbd':'#ff455e');
+
+rect(x-a*.08,y-b*.3,a*.13,b*.2,'#090e14');
+
+rect(x+a*.95,y-b*.3,a*.13,b*.2,'#090e14');
+
+rect(x-a*.08,y+b*.2,a*.13,b*.2,'#090e14');
+
+rect(x+a*.95,y+b*.2,a*.13,b*.2,'#090e14');
+
+if(player){ctx.strokeStyle='#4cf0ff';ctx.lineWidth=2;ctx.strokeRect(x+1,y-b/2+1,a-2,b-2)}
+
+}
+
+function draw(){
+
+ctx.setTransform(1,0,0,1,0,0);
+
+rect(0,0,w,h,'#1a2d2b');
+
+for(let y=-60+scroll%90;y<h+90;y+=90){
+
+rect(0,y,rx,4,'#274338');rect(rx+lw*4,y,w-rx-lw*4,4,'#274338');
+
+for(let x of [rx*.35,rx+lw*4+(w-rx-lw*4)*.6]){ctx.fillStyle='#48694b';ctx.beginPath();ctx.arc(x,y+20,10,0,Math.PI*2);ctx.fill()}
+
+}
+
+rect(rx,0,lw*4,h,'#303740');rect(rx+3,0,lw*4-6,h,'#252b34');
+
+rect(rx,0,3,h,'#d3d5ce');rect(rx+lw*4-3,0,3,h,'#d3d5ce');
+
+for(let i=1;i<4;i++)for(let y=-60+scroll%90;y<h;y+=90)rect(rx+lw*i-2,y,4,43,'#e8e9d8');
+
+traffic.forEach(t=>car(center(t.lane)-lw*.28,t.y,lw*.56,lw*1.05,t.color));
+
+car(center(lane)-lw*.31,h*.76,lw*.62,lw*1.17,'#17cde9',true);
+
+rect(rx+8,10,86,29,'#07111bd9',8);
+
+ctx.fillStyle='white';ctx.font=`bold ${Math.max(10,w*.018)}px system-ui`;ctx.fillText('KM/H '+Math.floor(speed*.55),rx+16,29);
+
+}
+
+function reset(){lane=target=1.5;scroll=0;speed=270;score=0;traffic=[];spawn=.4;running=true;paused=over=false;$('score').textContent='0';$('title').textContent='TRAFFIC RACING';$('desc').textContent='Уклоняйся от машин и набирай очки.';$('start').textContent='НАЧАТЬ ЗАНОВО';$('overlay').classList.add('hidden');$('pause').textContent='Ⅱ ПАУЗА'}
+
+function move(dir){if(!running||paused||over)return;target=Math.max(0,Math.min(3,target+dir))}
+
+function bind(id,dir){let b=$(id);function down(e){e.preventDefault();b.classList.add('active');move(dir)}function up(){b.classList.remove('active')}b.addEventListener('pointerdown',down);b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('pointerleave',up)}
+
+bind('left',-1);bind('right',1);
+
+$('start').onclick=reset;
+
+$('pause').onclick=()=>{if(!running||over)return;paused=!paused;$('pause').textContent=paused?'▶ ПРОДОЛЖИТЬ':'Ⅱ ПАУЗА';$('message').textContent=paused?'ПАУЗА':'Нажимай ◀ или ▶, чтобы менять полосу'};
+
+function crash(){running=false;over=true;best=Math.max(best,Math.floor(score));try{localStorage.setItem('trafficBest',best)}catch(e){}$('best').textContent=best;$('title').textContent='АВАРИЯ';$('desc').textContent='Твой счёт: '+Math.floor(score)+'. Попробуй ещё раз!';$('start').textContent='ЕЩЁ ЗАЕЗД';$('overlay').classList.remove('hidden')}
+
+function update(dt){
+
+if(!running||paused||over)return;
+
+lane+=(target-lane)*(1-Math.exp(-10*dt));
+
+if(Math.abs(target-lane)<.002)lane=target;
+
+scroll=(scroll+speed*dt)%90;speed=Math.min(440,270+score*.018);score+=dt*10;$('score').textContent=Math.floor(score);
+
+spawn-=dt;
+
+if(spawn<=0){let l=Math.floor(Math.random()*4),n=0;while(traffic.some(t=>t.lane===l&&t.y<lw*2.4)&&n++<8)l=Math.floor(Math.random()*4);traffic.push({lane:l,y:-lw*1.2,color:colors[Math.floor(Math.random()*colors.length)],speed:.66+Math.random()*.3});spawn=Math.max(.48,1.2-score*.0007)}
+
+let py=h*.76,ch=lw*1.17,cw=lw*.62;
+
+for(let t of traffic){t.y+=speed*t.speed*dt;if(Math.abs(center(t.lane)-center(lane))<(lw*.56+cw)*.43&&Math.abs(t.y-py)<(lw*1.05+ch)*.42){crash();break}}
+
+traffic=traffic.filter(t=>t.y<h+lw)
+
+}
+
+function frame(now){let dt=Math.min(.04,(now-last)/1000||0);last=now;update(dt);draw();requestAnimationFrame(frame)}
+
+addEventListener('resize',resize);resize();requestAnimationFrame(frame);
+
+})();
+
+</script>
+
+</body>
+
+</html>
