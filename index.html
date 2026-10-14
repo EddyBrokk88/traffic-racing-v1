@@ -284,7 +284,7 @@ if(spawn<=0){const l=Math.floor(Math.random()*4);traffic.push({lane:l,y:-80,colo
 if(oilSpawn<=0){oils.push({lane:Math.floor(Math.random()*4),y:-40,angle:random(-.6,.6)});oilSpawn=4+Math.random()*4}
 if(coinSpawn<=0){coins.push({lane:Math.floor(Math.random()*4),y:-30,spin:0});coinSpawn=1.1+Math.random()*1.2}
 const py=H*.79,ph=Math.min(H*.09,68);
-for(let i=traffic.length-1;i>=0;i--){const c=traffic[i];if(c.wreck)continue;c.y+=speed*dt;if(c.y>H+90){traffic.splice(i,1);continue}if(Math.abs(carX(c.lane)-carX(playerX))<laneWidth()*.48&&Math.abs(c.y-py)<ph*.82){collide(c);break}}
+for(let i=traffic.length-1;i>=0;i--){const c=traffic[i];if(c.wreck)continue;c.y+=speed*1.75*dt;if(c.y>H+90){traffic.splice(i,1);continue}if(Math.abs(carX(c.lane)-carX(playerX))<laneWidth()*.48&&Math.abs(c.y-py)<ph*.82){collide(c);break}}
 for(let i=oils.length-1;i>=0;i--){const o=oils[i];o.y+=speed*dt;if(o.y>H+40){oils.splice(i,1);continue}if(Math.abs(carX(o.lane)-carX(playerX))<laneWidth()*.43&&Math.abs(o.y-py)<19&&skidCooldown<=0){skidDir=Math.random()<.5?-1:1;skidTimer=1.15;skidCooldown=2.2;oils.splice(i,1)}}
 for(let i=coins.length-1;i>=0;i--){const c=coins[i];c.y+=speed*dt;c.spin+=dt*5;if(c.y>H+30){coins.splice(i,1);continue}if(Math.abs(carX(c.lane)-carX(playerX))<laneWidth()*.42&&Math.abs(c.y-py)<38){coins.splice(i,1);collectCoin()}}
 if(skidTimer>0){const cx=carX(playerX),yy=H*.79+23;tireMarks.push({x:cx-laneWidth()*.16,y:yy,life:1.05},{x:cx+laneWidth()*.16,y:yy,life:1.05})}
