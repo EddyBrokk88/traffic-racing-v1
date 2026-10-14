@@ -143,7 +143,7 @@ if(textureReady){
  // Масштабируем текстуру на ширину дороги и повторяем её по вертикали.
  const ratio=rw/roadTexture.width;
  const tileH=roadTexture.height*ratio;
- let y=-(textureScroll%tileH);
+let y=(textureScroll%tileH)-tileH;
  while(y<H){
   ctx.drawImage(roadTexture,edge,y,rw,tileH);
   y+=tileH;
