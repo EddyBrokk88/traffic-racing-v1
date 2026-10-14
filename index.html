@@ -45,7 +45,7 @@ h1{font-size:32px;margin:0 0 8px}
 <h1>TRAFFIC<br>RACING</h1>
 <div class="subtitle">ENDLESS HIGHWAY</div>
 <button class="action" id="start">START RACING</button>
-<div class="help">Удерживай ◀ или ▶ для движения.<br>Отпусти кнопку, чтобы остановиться.</div>
+<div class="help">Удерживай ◀ или ▶ для движения.<br>Избегай машин и масляных пятен!</div>
 </div>
 </div>
 <div class="overlay hidden" id="message">
@@ -65,9 +65,10 @@ const $=id=>document.getElementById(id);
 const game=$('game');
 let W=400,H=700,dpr=1;
 let running=false,paused=false,over=false;
-let playerX=1.5,held=0;
-let roadScroll=0,score=0,best=0,speed=250,spawn=0,last=0;
-let traffic=[];
+let playerX=1.5,held=0,playerAngle=0;
+let skidTimer=0,skidDir=0,skidCooldown=0;
+let roadScroll=0,score=0,best=0,speed=250,spawn=0,oilSpawn=3,last=0;
+let traffic=[],oils=[],tireMarks=[];
 try{best=Number(localStorage.getItem('trafficBest')||0)}catch(e){}
 $('best').textContent=best;
 
@@ -87,9 +88,10 @@ function leftEdge(){return (W-roadWidth())/2}
 function laneWidth(){return roadWidth()/4}
 function carX(n){return leftEdge()+laneWidth()*(n+.5)}
 
-function drawCar(x,y,w,h,color,player=false){
+function drawCar(x,y,w,h,color,player=false,angle=0){
  ctx.save();
  ctx.translate(x,y);
+ ctx.rotate(angle);
  ctx.fillStyle='#0008';
  ctx.fillRect(-w*.48+3,-h*.45+5,w*.96,h*.95);
  ctx.fillStyle=color;
@@ -116,6 +118,25 @@ function drawCar(x,y,w,h,color,player=false){
  ctx.restore();
 }
 
+function drawOil(o){
+ ctx.save();
+ ctx.translate(carX(o.lane),o.y);
+ ctx.rotate(o.angle);
+ ctx.fillStyle='#090c10';
+ ctx.beginPath();
+ ctx.ellipse(0,0,laneWidth()*.31,13,0,0,Math.PI*2);
+ ctx.fill();
+ ctx.fillStyle='#272932';
+ ctx.beginPath();
+ ctx.ellipse(-2,-2,laneWidth()*.23,8,0,0,Math.PI*2);
+ ctx.fill();
+ ctx.fillStyle='#45404b';
+ ctx.beginPath();
+ ctx.ellipse(4,1,laneWidth()*.12,4,0,0,Math.PI*2);
+ ctx.fill();
+ ctx.restore();
+}
+
 function draw(){
  ctx.clearRect(0,0,W,H);
  ctx.fillStyle='#10251f';ctx.fillRect(0,0,W,H);
@@ -124,23 +145,51 @@ function draw(){
  ctx.fillStyle='#202a33';ctx.fillRect(edge,0,rw,H);
  ctx.fillStyle='#d4d8d4';
  for(let y=-40+(roadScroll%70);y<H;y+=70){
-  ctx.fillRect(edge-5,y,3,35);ctx.fillRect(edge+rw+2,y,3,35);
+  ctx.fillRect(edge-5,y,3,35);
+  ctx.fillRect(edge+rw+2,y,3,35);
  }
  ctx.fillStyle='#68737b';
  for(let i=1;i<4;i++)
   for(let y=-50+(roadScroll%62);y<H;y+=62)
    ctx.fillRect(edge+lw*i-1,y,2,29);
+
+ // Следы шин постепенно исчезают
+ for(const m of tireMarks){
+  ctx.globalAlpha=Math.max(0,m.life/1.05)*.55;
+  ctx.fillStyle='#090d12';
+  ctx.beginPath();
+  ctx.ellipse(m.x,m.y,2.2,7,0,0,Math.PI*2);
+  ctx.fill();
+ }
+ ctx.globalAlpha=1;
+
+ for(const o of oils)drawOil(o);
  for(const c of traffic)
   drawCar(carX(c.lane),c.y,Math.min(lw*.57,43),Math.min(H*.085,64),c.color);
- drawCar(carX(playerX),H*.79,Math.min(lw*.59,44),Math.min(H*.09,68),'#13b9b0',true);
+
+ drawCar(carX(playerX),H*.79,Math.min(lw*.59,44),Math.min(H*.09,68),'#13b9b0',true,playerAngle);
+
+ if(skidTimer>0){
+  ctx.save();
+  ctx.fillStyle='#ffffff';
+  ctx.globalAlpha=.85;
+  ctx.font='bold 12px Arial';
+  ctx.textAlign='center';
+  ctx.fillText('SKID!',W/2,H*.68);
+  ctx.restore();
+ }
 }
 
 function reset(){
- playerX=1.5;held=0;roadScroll=0;score=0;speed=250;spawn=.6;traffic=[];
+ playerX=1.5;held=0;playerAngle=0;
+ skidTimer=0;skidDir=0;skidCooldown=0;
+ roadScroll=0;score=0;speed=250;spawn=.6;oilSpawn=3;
+ traffic=[];oils=[];tireMarks=[];
  running=true;paused=false;over=false;
  $('menu').classList.add('hidden');
  $('message').classList.add('hidden');
  $('score').textContent='0';
+ $('resume').classList.remove('hidden');
  last=performance.now();
 }
 
@@ -172,7 +221,7 @@ function togglePause(){
 
 function bindButton(id,dir){
  const b=$(id);
- function release(e){
+ function release(){
   held=0;
   b.classList.remove('active');
  }
@@ -198,13 +247,22 @@ $('resume').addEventListener('click',togglePause);
 function update(dt){
  if(!running||paused)return;
 
- // CONTINUOUS MOVEMENT WHILE BUTTON IS HELD
- playerX += held * 2.3 * dt;
- playerX = Math.max(0,Math.min(3,playerX));
+ if(skidCooldown>0)skidCooldown-=dt;
+ if(skidTimer>0){
+  skidTimer-=dt;
+  playerX+=skidDir*1.85*dt;
+  playerAngle=-skidDir*.62;
+ }else{
+  playerX+=held*2.3*dt;
+  const desiredAngle=-held*.13;
+  playerAngle+=(desiredAngle-playerAngle)*(1-Math.exp(-5*dt));
+ }
+ playerX=Math.max(0,Math.min(3,playerX));
 
  roadScroll=(roadScroll+speed*dt)%70;
  speed=Math.min(440,250+score*.35);
  spawn-=dt;
+ oilSpawn-=dt;
 
  if(spawn<=0){
   const l=Math.floor(Math.random()*4);
@@ -215,14 +273,51 @@ function update(dt){
   spawn=Math.max(.48,1.05-score*.003)+Math.random()*.25;
  }
 
+ // Масляные пятна появляются на случайных полосах
+ if(oilSpawn<=0){
+  oils.push({
+   lane:Math.floor(Math.random()*4),
+   y:-40,
+   angle:Math.random()*1.2-.6
+  });
+  oilSpawn=4+Math.random()*4;
+ }
+
  const py=H*.79,ph=Math.min(H*.09,68);
+
  for(let i=traffic.length-1;i>=0;i--){
   const c=traffic[i];c.y+=speed*dt;
   if(c.y>H+90){traffic.splice(i,1);continue}
-  const carDistance=Math.abs(carX(c.lane)-carX(playerX));
-  if(carDistance<laneWidth()*.48&&Math.abs(c.y-py)<ph*.82){
+  if(Math.abs(carX(c.lane)-carX(playerX))<laneWidth()*.48&&Math.abs(c.y-py)<ph*.82){
    endGame();return;
   }
+ }
+
+ for(let i=oils.length-1;i>=0;i--){
+  const o=oils[i];
+  o.y+=speed*dt;
+  if(o.y>H+40){oils.splice(i,1);continue}
+  const dx=Math.abs(carX(o.lane)-carX(playerX));
+  if(dx<laneWidth()*.43&&Math.abs(o.y-py)<19&&skidCooldown<=0){
+   skidDir=Math.random()<.5?-1:1;
+   skidTimer=1.15;
+   skidCooldown=2.2;
+   oils.splice(i,1);
+  }
+ }
+
+ // Следы от задних колёс во время заноса
+ if(skidTimer>0){
+  const cx=carX(playerX);
+  const py2=H*.79;
+  tireMarks.push({x:cx-laneWidth()*.16,y:py2+23,life:1.05});
+  tireMarks.push({x:cx+laneWidth()*.16,y:py2+23,life:1.05});
+ }
+ for(let i=tireMarks.length-1;i>=0;i--){
+  const m=tireMarks[i];
+  m.y+=speed*dt;
+  m.life-=dt;
+  if(m.life<=0||m.y>H+20)tireMarks.splice(i,1);
  }
  score+=Math.floor(dt*10);
  $('score').textContent=score;
