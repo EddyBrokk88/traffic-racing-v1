@@ -18,8 +18,8 @@ canvas{width:100%;height:100%;display:block}
 .controls{position:absolute;bottom:max(20px,env(safe-area-inset-bottom));left:0;right:0;display:flex;justify-content:space-between;padding:0 22px;pointer-events:none}
 .ctrl{pointer-events:auto;width:82px;height:72px;border-radius:18px;background:#18354bcc;border:2px solid #5b91ac;color:white;font-size:32px;font-weight:bold;touch-action:none;user-select:none;-webkit-user-select:none}
 .ctrl.active{background:#30a9a0;transform:scale(.96)}
-.overlay{position:absolute;inset:0;background:#06101beF;display:flex;align-items:center;justify-content:center;padding:18px;text-align:center;overflow-y:auto}
-.card{width:100%;max-width:380px;background:#102235;border:1px solid #3d6078;border-radius:18px;padding:20px 16px;margin:auto;box-shadow:0 12px 40px #0008}
+.overlay{position:absolute;inset:0;background:#06101bef;display:flex;align-items:center;justify-content:center;padding:18px;text-align:center;overflow-y:auto}
+.card{width:100%;max-width:380px;background:#102235;border:1px solid #3d6078;border-radius:18px;padding:20px 16px;margin:auto}
 h1{font-size:30px;margin:0 0 5px;letter-spacing:1px}
 .subtitle{color:#8db3ca;font-size:12px;margin:8px 0 17px}
 .action{width:100%;border:0;border-radius:10px;padding:14px;margin-top:8px;background:#22a99b;color:white;font-size:15px;font-weight:bold}
@@ -27,15 +27,14 @@ h1{font-size:30px;margin:0 0 5px;letter-spacing:1px}
 .hidden{display:none!important}
 .help{font-size:12px;color:#91aabd;line-height:1.6;margin-top:14px}
 .balance{font-size:18px;color:#ffd45a;font-weight:bold;margin:12px 0}
-.car-preview{height:90px;display:flex;align-items:center;justify-content:center;font-size:54px;margin:5px}
+.car-preview{height:70px;display:flex;align-items:center;justify-content:center;font-size:48px}
 .shop-list{display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:left}
-.car-item{background:#0a1724;border:1px solid #30495d;border-radius:10px;padding:10px 8px;min-width:0}
-.car-item.selected{border-color:#27d9bd;box-shadow:inset 0 0 0 1px #27d9bd}
+.car-item{background:#0a1724;border:1px solid #30495d;border-radius:10px;padding:9px 7px}
+.car-item.selected{border-color:#27d9bd}
 .car-name{font-size:13px;font-weight:bold}
 .car-price{font-size:12px;color:#ffd45a;margin:6px 0}
 .car-item button{width:100%;border:0;border-radius:7px;background:#247e77;color:white;padding:9px 3px;font-size:12px;font-weight:bold}
 .car-item button:disabled{background:#374652;color:#a5b5c0}
-.shop-list .car-item{overflow:hidden}
 </style>
 </head>
 <body>
@@ -50,7 +49,6 @@ h1{font-size:30px;margin:0 0 5px;letter-spacing:1px}
  <button class="ctrl" id="left">◀</button>
  <button class="ctrl" id="right">▶</button>
 </div>
-
 <div class="overlay" id="menu">
  <div class="card">
   <h1>TRAFFIC<br>RACING</h1>
@@ -59,20 +57,17 @@ h1{font-size:30px;margin:0 0 5px;letter-spacing:1px}
   <div class="balance">🪙 <span id="menuCoins">0</span></div>
   <button class="action" id="play">START RACING</button>
   <button class="action secondary" id="openGarage">GARAGE / SHOP</button>
-  <div class="help">Собирай монеты на трассе и открывай новые автомобили.</div>
+  <div class="help">Собирай монеты и открывай новые автомобили.</div>
  </div>
 </div>
-
 <div class="overlay hidden" id="garage">
  <div class="card">
-  <h1>GARAGE</h1>
-  <div class="subtitle">CHOOSE YOUR CAR</div>
+  <h1>GARAGE</h1><div class="subtitle">CHOOSE YOUR CAR</div>
   <div class="balance">🪙 <span id="garageCoins">0</span></div>
   <div class="shop-list" id="carList"></div>
   <button class="action secondary" id="backMenu">BACK TO MENU</button>
  </div>
 </div>
-
 <div class="overlay hidden" id="message">
  <div class="card">
   <h1 id="messageTitle">PAUSED</h1>
@@ -83,68 +78,57 @@ h1{font-size:30px;margin:0 0 5px;letter-spacing:1px}
  </div>
 </div>
 </div>
-
 <script>
 (()=>{
-const canvas=document.getElementById('canvas');
-const ctx=canvas.getContext('2d');
-const $=id=>document.getElementById(id);
-const game=$('game');
+const canvas=document.getElementById('canvas'),ctx=canvas.getContext('2d');
+const $=id=>document.getElementById(id),game=$('game');
+const roadTexture=new Image();
+roadTexture.src='road-texture.png';
+let textureReady=false;
+roadTexture.onload=()=>{textureReady=true};
+roadTexture.onerror=()=>{textureReady=false};
 
 const cars=[
- {id:1,name:'CAR-01',color:'#13b9b0',price:0,emoji:'🚘'},
- {id:2,name:'CAR-02',color:'#e94f5b',price:30,emoji:'🏎️'},
- {id:3,name:'CAR-03',color:'#4d8dff',price:60,emoji:'🚙'},
- {id:4,name:'CAR-04',color:'#f1c644',price:100,emoji:'🚕'},
- {id:5,name:'CAR-05',color:'#a879f5',price:150,emoji:'🚗'},
- {id:6,name:'CAR-06',color:'#e8e9ed',price:220,emoji:'🚓'},
- {id:7,name:'CAR-07',color:'#ff873e',price:300,emoji:'🏁'},
- {id:8,name:'CAR-08',color:'#6ce36e',price:400,emoji:'🚗'}
+{id:1,name:'CAR-01',color:'#13b9b0',price:0,emoji:'🚘'},
+{id:2,name:'CAR-02',color:'#e94f5b',price:30,emoji:'🏎️'},
+{id:3,name:'CAR-03',color:'#4d8dff',price:60,emoji:'🚙'},
+{id:4,name:'CAR-04',color:'#f1c644',price:100,emoji:'🚕'},
+{id:5,name:'CAR-05',color:'#a879f5',price:150,emoji:'🚗'},
+{id:6,name:'CAR-06',color:'#e8e9ed',price:220,emoji:'🚓'},
+{id:7,name:'CAR-07',color:'#ff873e',price:300,emoji:'🏁'},
+{id:8,name:'CAR-08',color:'#6ce36e',price:400,emoji:'🚗'}
 ];
-
-let W=400,H=700,dpr=1;
-let mode='menu',running=false,paused=false,over=false,crashing=false;
-let playerX=1.5,held=0,playerAngle=0;
-let skidTimer=0,skidDir=0,skidCooldown=0;
-let roadScroll=0,score=0,best=0,speed=250,spawn=0,oilSpawn=3,coinSpawn=1.2,last=0;
-let traffic=[],oils=[],coins=[],tireMarks=[],particles=[];
-let playerWreck=null,gameOverTimer=0,runCoins=0;
+let W=400,H=700,dpr=1,mode='menu';
+let running=false,paused=false,over=false,crashing=false;
+let playerX=1.5,held=0,playerAngle=0,skidTimer=0,skidDir=0,skidCooldown=0;
+let roadScroll=0,textureScroll=0,score=0,best=0,speed=250,spawn=0,oilSpawn=3,coinSpawn=1.2,last=0;
+let traffic=[],oils=[],coins=[],tireMarks=[],particles=[],playerWreck=null,gameOverTimer=0,runCoins=0;
 let wallet=0,selectedCar=1,owned=[1];
-
 try{
- wallet=Number(localStorage.getItem('trafficWallet')||0);
- best=Number(localStorage.getItem('trafficBest')||0);
- selectedCar=Number(localStorage.getItem('trafficSelected')||1);
- owned=JSON.parse(localStorage.getItem('trafficOwned')||'[1]');
- if(!owned.includes(1))owned.unshift(1);
- if(!owned.includes(selectedCar))selectedCar=1;
+wallet=Number(localStorage.getItem('trafficWallet')||0);
+best=Number(localStorage.getItem('trafficBest')||0);
+selectedCar=Number(localStorage.getItem('trafficSelected')||1);
+owned=JSON.parse(localStorage.getItem('trafficOwned')||'[1]');
+if(!owned.includes(1))owned.unshift(1);
+if(!owned.includes(selectedCar))selectedCar=1;
 }catch(e){wallet=0;best=0;selectedCar=1;owned=[1]}
 
-function save(){
- try{
-  localStorage.setItem('trafficWallet',wallet);
-  localStorage.setItem('trafficBest',best);
-  localStorage.setItem('trafficSelected',selectedCar);
-  localStorage.setItem('trafficOwned',JSON.stringify(owned));
- }catch(e){}
-}
+function save(){try{
+localStorage.setItem('trafficWallet',wallet);
+localStorage.setItem('trafficBest',best);
+localStorage.setItem('trafficSelected',selectedCar);
+localStorage.setItem('trafficOwned',JSON.stringify(owned));
+}catch(e){}}
 function updateWallet(){
- $('menuCoins').textContent=wallet;
- $('garageCoins').textContent=wallet;
- $('runCoins').textContent=runCoins;
- $('menuCar').textContent=cars[selectedCar-1].emoji;
+$('menuCoins').textContent=wallet;$('garageCoins').textContent=wallet;
+$('runCoins').textContent=runCoins;$('menuCar').textContent=cars[selectedCar-1].emoji;
 }
 function resize(){
- const r=game.getBoundingClientRect();
- dpr=Math.min(window.devicePixelRatio||1,2);
- W=r.width;H=r.height;
- canvas.width=Math.round(W*dpr);
- canvas.height=Math.round(H*dpr);
- ctx.setTransform(dpr,0,0,dpr,0,0);
+const r=game.getBoundingClientRect();dpr=Math.min(window.devicePixelRatio||1,2);
+W=r.width;H=r.height;canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);
+ctx.setTransform(dpr,0,0,dpr,0,0);
 }
-window.addEventListener('resize',resize);
-resize();
-
+window.addEventListener('resize',resize);resize();
 function roadWidth(){return Math.min(W*.82,340)}
 function leftEdge(){return (W-roadWidth())/2}
 function laneWidth(){return roadWidth()/4}
@@ -153,239 +137,165 @@ function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
 function random(a,b){return a+Math.random()*(b-a)}
 function selected(){return cars[selectedCar-1]||cars[0]}
 
-function drawCar(x,y,w,h,color,angle=0,burned=false){
- ctx.save();ctx.translate(x,y);ctx.rotate(angle);
- ctx.fillStyle='#0009';ctx.fillRect(-w*.48+3,-h*.45+5,w*.96,h*.95);
- ctx.fillStyle=burned?'#17191b':color;
- ctx.beginPath();ctx.roundRect(-w/2,-h/2,w,h,w*.22);ctx.fill();
- ctx.fillStyle=burned?'#292b2c':'#182c3d';
- ctx.beginPath();ctx.roundRect(-w*.34,-h*.29,w*.68,h*.28,w*.08);ctx.fill();
- ctx.fillStyle=burned?'#111':'#294b61';ctx.fillRect(-w*.32,h*.08,w*.64,h*.20);
- if(burned){
-  ctx.fillStyle='#55504a';ctx.fillRect(-w*.25,-h*.05,w*.5,h*.14);
-  ctx.fillStyle='#ff6b25';ctx.fillRect(-w*.32,-h*.44,w*.18,h*.06);ctx.fillRect(w*.14,-h*.44,w*.18,h*.06);
- }else{
-  ctx.fillStyle='#e5f6ff';ctx.fillRect(-w*.35,-h*.43,w*.22,h*.07);ctx.fillRect(w*.13,-h*.43,w*.22,h*.07);
-  ctx.fillStyle='#ff5b58';ctx.fillRect(-w*.36,h*.36,w*.22,h*.07);ctx.fillRect(w*.14,h*.36,w*.22,h*.07);
+function drawRoad(){
+const edge=leftEdge(),rw=roadWidth();
+if(textureReady){
+ // Масштабируем текстуру на ширину дороги и повторяем её по вертикали.
+ const ratio=rw/roadTexture.width;
+ const tileH=roadTexture.height*ratio;
+ let y=-(textureScroll%tileH);
+ while(y<H){
+  ctx.drawImage(roadTexture,edge,y,rw,tileH);
+  y+=tileH;
  }
- ctx.fillStyle='#111820';
- ctx.fillRect(-w*.55,-h*.29,w*.12,h*.22);ctx.fillRect(w*.43,-h*.29,w*.12,h*.22);
- ctx.fillRect(-w*.55,h*.15,w*.12,h*.22);ctx.fillRect(w*.43,h*.15,w*.12,h*.22);
- ctx.restore();
-}
-
-function drawOil(o){
- ctx.save();ctx.translate(carX(o.lane),o.y);ctx.rotate(o.angle);
- ctx.fillStyle='#090c10';ctx.beginPath();ctx.ellipse(0,0,laneWidth()*.31,13,0,0,Math.PI*2);ctx.fill();
- ctx.fillStyle='#272932';ctx.beginPath();ctx.ellipse(-2,-2,laneWidth()*.23,8,0,0,Math.PI*2);ctx.fill();
- ctx.restore();
-}
-function drawCoin(c){
- ctx.save();ctx.translate(carX(c.lane),c.y);
- ctx.shadowColor='#ffcb32';ctx.shadowBlur=12;
- ctx.fillStyle='#ffcf35';ctx.beginPath();ctx.arc(0,0,10,0,Math.PI*2);ctx.fill();
- ctx.shadowBlur=0;ctx.strokeStyle='#fff0a1';ctx.lineWidth=2;ctx.stroke();
- ctx.fillStyle='#986311';ctx.font='bold 12px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('$',0,1);
- ctx.restore();
-}
-function draw(){
- ctx.clearRect(0,0,W,H);
- ctx.fillStyle='#10251f';ctx.fillRect(0,0,W,H);
- const edge=leftEdge(),rw=roadWidth(),lw=laneWidth();
+}else{
  ctx.fillStyle='#293640';ctx.fillRect(edge-7,0,rw+14,H);
  ctx.fillStyle='#202a33';ctx.fillRect(edge,0,rw,H);
  ctx.fillStyle='#d4d8d4';
  for(let y=-40+(roadScroll%70);y<H;y+=70){ctx.fillRect(edge-5,y,3,35);ctx.fillRect(edge+rw+2,y,3,35)}
  ctx.fillStyle='#68737b';
- for(let i=1;i<4;i++)for(let y=-50+(roadScroll%62);y<H;y+=62)ctx.fillRect(edge+lw*i-1,y,2,29);
- for(const m of tireMarks){ctx.globalAlpha=clamp(m.life/1.2,0,1)*.55;ctx.fillStyle='#090d12';ctx.beginPath();ctx.ellipse(m.x,m.y,2.2,7,0,0,Math.PI*2);ctx.fill()}
- ctx.globalAlpha=1;
- for(const o of oils)drawOil(o);
- for(const c of coins)drawCoin(c);
- for(const c of traffic){
-  const color=c.wreck?'#17191b':c.color;
-  drawCar(carX(c.lane)+(c.offset||0),c.y,Math.min(lw*.57,43),Math.min(H*.085,64),color,c.angle||0,!!c.wreck);
- }
- if(playerWreck){
-  drawCar(playerWreck.x,playerWreck.y,Math.min(lw*.59,44),Math.min(H*.09,68),'#17191b',playerWreck.angle,true);
- }else{
-  drawCar(carX(playerX),H*.79,Math.min(lw*.59,44),Math.min(H*.09,68),selected().color,playerAngle);
- }
- for(const p of particles){
-  ctx.globalAlpha=clamp(p.life/p.maxLife,0,1);
-  ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();
- }
- ctx.globalAlpha=1;
- if(skidTimer>0&&!crashing){ctx.fillStyle='#fff';ctx.font='bold 12px Arial';ctx.textAlign='center';ctx.fillText('SKID!',W/2,H*.68)}
+ for(let i=1;i<4;i++)for(let y=-50+(roadScroll%62);y<H;y+=62)ctx.fillRect(edge+laneWidth()*i-1,y,2,29);
+}
+}
+
+function drawCar(x,y,w,h,color,angle=0,burned=false){
+ctx.save();ctx.translate(x,y);ctx.rotate(angle);
+ctx.fillStyle='#0009';ctx.fillRect(-w*.48+3,-h*.45+5,w*.96,h*.95);
+ctx.fillStyle=burned?'#17191b':color;ctx.beginPath();ctx.roundRect(-w/2,-h/2,w,h,w*.22);ctx.fill();
+ctx.fillStyle=burned?'#292b2c':'#182c3d';ctx.beginPath();ctx.roundRect(-w*.34,-h*.29,w*.68,h*.28,w*.08);ctx.fill();
+ctx.fillStyle=burned?'#111':'#294b61';ctx.fillRect(-w*.32,h*.08,w*.64,h*.20);
+if(burned){ctx.fillStyle='#55504a';ctx.fillRect(-w*.25,-h*.05,w*.5,h*.14);ctx.fillStyle='#ff6b25';ctx.fillRect(-w*.32,-h*.44,w*.18,h*.06);ctx.fillRect(w*.14,-h*.44,w*.18,h*.06)}
+else{ctx.fillStyle='#e5f6ff';ctx.fillRect(-w*.35,-h*.43,w*.22,h*.07);ctx.fillRect(w*.13,-h*.43,w*.22,h*.07);ctx.fillStyle='#ff5b58';ctx.fillRect(-w*.36,h*.36,w*.22,h*.07);ctx.fillRect(w*.14,h*.36,w*.22,h*.07)}
+ctx.fillStyle='#111820';ctx.fillRect(-w*.55,-h*.29,w*.12,h*.22);ctx.fillRect(w*.43,-h*.29,w*.12,h*.22);ctx.fillRect(-w*.55,h*.15,w*.12,h*.22);ctx.fillRect(w*.43,h*.15,w*.12,h*.22);
+ctx.restore();
+}
+function drawOil(o){
+ctx.save();ctx.translate(carX(o.lane),o.y);ctx.rotate(o.angle);
+ctx.fillStyle='#090c10';ctx.beginPath();ctx.ellipse(0,0,laneWidth()*.31,13,0,0,Math.PI*2);ctx.fill();
+ctx.fillStyle='#272932';ctx.beginPath();ctx.ellipse(-2,-2,laneWidth()*.23,8,0,0,Math.PI*2);ctx.fill();ctx.restore();
+}
+function drawCoin(c){
+ctx.save();ctx.translate(carX(c.lane),c.y);ctx.scale(Math.max(.25,Math.abs(Math.cos(c.spin))),1);
+ctx.shadowColor='#ffcb32';ctx.shadowBlur=12;ctx.fillStyle='#ffcf35';
+ctx.beginPath();ctx.arc(0,0,10,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+ctx.strokeStyle='#fff0a1';ctx.lineWidth=2;ctx.stroke();
+ctx.fillStyle='#986311';ctx.font='bold 12px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('$',0,1);ctx.restore();
+}
+function draw(){
+ctx.clearRect(0,0,W,H);ctx.fillStyle='#10251f';ctx.fillRect(0,0,W,H);
+drawRoad();
+for(const m of tireMarks){ctx.globalAlpha=clamp(m.life/1.2,0,1)*.55;ctx.fillStyle='#090d12';ctx.beginPath();ctx.ellipse(m.x,m.y,2.2,7,0,0,Math.PI*2);ctx.fill()}
+ctx.globalAlpha=1;
+for(const o of oils)drawOil(o);for(const c of coins)drawCoin(c);
+for(const c of traffic)drawCar(carX(c.lane)+(c.offset||0),c.y,Math.min(laneWidth()*.57,43),Math.min(H*.085,64),c.wreck?'#17191b':c.color,c.angle||0,!!c.wreck);
+if(playerWreck)drawCar(playerWreck.x,playerWreck.y,Math.min(laneWidth()*.59,44),Math.min(H*.09,68),'#17191b',playerWreck.angle,true);
+else drawCar(carX(playerX),H*.79,Math.min(laneWidth()*.59,44),Math.min(H*.09,68),selected().color,playerAngle);
+for(const p of particles){ctx.globalAlpha=clamp(p.life/p.maxLife,0,1);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill()}
+ctx.globalAlpha=1;
+if(skidTimer>0&&!crashing){ctx.fillStyle='#fff';ctx.font='bold 12px Arial';ctx.textAlign='center';ctx.fillText('SKID!',W/2,H*.68)}
 }
 
 function showMenu(){
- mode='menu';running=false;paused=false;crashing=false;held=0;
- $('hud').classList.add('hidden');$('controls').classList.add('hidden');
- $('garage').classList.add('hidden');$('message').classList.add('hidden');
- $('menu').classList.remove('hidden');updateWallet();
+mode='menu';running=false;paused=false;crashing=false;held=0;
+$('hud').classList.add('hidden');$('controls').classList.add('hidden');
+$('garage').classList.add('hidden');$('message').classList.add('hidden');$('menu').classList.remove('hidden');updateWallet();
 }
 function showGarage(){
- mode='garage';
- $('menu').classList.add('hidden');$('garage').classList.remove('hidden');
- updateWallet();renderCars();
+mode='garage';$('menu').classList.add('hidden');$('garage').classList.remove('hidden');updateWallet();renderCars();
 }
 function renderCars(){
- const list=$('carList');list.innerHTML='';
- for(const c of cars){
-  const isOwned=owned.includes(c.id),isSelected=selectedCar===c.id;
-  const item=document.createElement('div');
-  item.className='car-item'+(isSelected?' selected':'');
-  const preview=document.createElement('div');
-  preview.style.cssText='height:46px;display:flex;align-items:center;justify-content:center;font-size:32px';
-  preview.textContent=c.emoji;
-  const name=document.createElement('div');name.className='car-name';name.textContent=c.name;
-  const price=document.createElement('div');price.className='car-price';price.textContent=c.price===0?'FREE':'🪙 '+c.price;
-  const btn=document.createElement('button');
-  btn.textContent=isSelected?'SELECTED':isOwned?'SELECT':'BUY';
-  btn.disabled=isSelected;
-  btn.onclick=()=>{
-   if(owned.includes(c.id)){selectedCar=c.id}
-   else if(wallet>=c.price){wallet-=c.price;owned.push(c.id);selectedCar=c.id}
-   else{btn.textContent='NOT ENOUGH';return}
-   save();updateWallet();renderCars();
-  };
-  item.append(preview,name,price,btn);list.appendChild(item);
- }
+const list=$('carList');list.innerHTML='';
+for(const c of cars){
+const isOwned=owned.includes(c.id),isSelected=selectedCar===c.id;
+const item=document.createElement('div');item.className='car-item'+(isSelected?' selected':'');
+const preview=document.createElement('div');preview.style.cssText='height:42px;display:flex;align-items:center;justify-content:center;font-size:30px';preview.textContent=c.emoji;
+const name=document.createElement('div');name.className='car-name';name.textContent=c.name;
+const price=document.createElement('div');price.className='car-price';price.textContent=c.price===0?'FREE':'🪙 '+c.price;
+const btn=document.createElement('button');btn.textContent=isSelected?'SELECTED':isOwned?'SELECT':'BUY';btn.disabled=isSelected;
+btn.onclick=()=>{
+if(owned.includes(c.id))selectedCar=c.id;
+else if(wallet>=c.price){wallet-=c.price;owned.push(c.id);selectedCar=c.id}
+else{btn.textContent='NOT ENOUGH';return}
+save();updateWallet();renderCars();
+};
+item.append(preview,name,price,btn);list.appendChild(item);
+}
 }
 function startGame(){
- mode='game';running=true;paused=false;over=false;crashing=false;
- playerX=1.5;held=0;playerAngle=0;skidTimer=0;skidDir=0;skidCooldown=0;
- roadScroll=0;score=0;speed=250;spawn=.6;oilSpawn=3;coinSpawn=1.2;runCoins=0;
- traffic=[];oils=[];coins=[];tireMarks=[];particles=[];playerWreck=null;gameOverTimer=0;
- $('menu').classList.add('hidden');$('garage').classList.add('hidden');$('message').classList.add('hidden');
- $('hud').classList.remove('hidden');$('controls').classList.remove('hidden');
- $('score').textContent='0';$('runCoins').textContent='0';
- $('resume').classList.remove('hidden');last=performance.now();
+mode='game';running=true;paused=false;over=false;crashing=false;
+playerX=1.5;held=0;playerAngle=0;skidTimer=0;skidDir=0;skidCooldown=0;
+roadScroll=0;textureScroll=0;score=0;speed=250;spawn=.6;oilSpawn=3;coinSpawn=1.2;runCoins=0;
+traffic=[];oils=[];coins=[];tireMarks=[];particles=[];playerWreck=null;gameOverTimer=0;
+$('menu').classList.add('hidden');$('garage').classList.add('hidden');$('message').classList.add('hidden');
+$('hud').classList.remove('hidden');$('controls').classList.remove('hidden');
+$('score').textContent='0';$('runCoins').textContent='0';$('resume').classList.remove('hidden');last=performance.now();
 }
-function collectCoin(){
- wallet++;runCoins++;save();updateWallet();
-}
+function collectCoin(){wallet++;runCoins++;save();updateWallet()}
 function burst(x,y){
- const colors=['#ffcf55','#ff762b','#ff3e22','#777','#ddd'];
- for(let i=0;i<42;i++){
-  const a=Math.random()*Math.PI*2,s=random(45,230),life=random(.35,1.15);
-  particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life,maxLife:life,size:random(2,6),color:colors[Math.floor(Math.random()*colors.length)]});
- }
+const colors=['#ffcf55','#ff762b','#ff3e22','#777','#ddd'];
+for(let i=0;i<42;i++){const a=Math.random()*Math.PI*2,s=random(45,230),life=random(.35,1.15);particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life,maxLife:life,size:random(2,6),color:colors[Math.floor(Math.random()*colors.length)]})}
 }
 function finishGame(){
- running=false;over=true;crashing=false;held=0;
- if(score>best){best=score;try{localStorage.setItem('trafficBest',best)}catch(e){}}
- $('messageTitle').textContent='GAME OVER';
- $('messageText').textContent='Distance: '+score+' · Coins: '+runCoins;
- $('resume').classList.add('hidden');$('message').classList.remove('hidden');
- $('hud').classList.add('hidden');$('controls').classList.add('hidden');
+running=false;over=true;crashing=false;held=0;
+if(score>best){best=score;try{localStorage.setItem('trafficBest',best)}catch(e){}}
+$('messageTitle').textContent='GAME OVER';$('messageText').textContent='Distance: '+score+' · Coins: '+runCoins;
+$('resume').classList.add('hidden');$('message').classList.remove('hidden');$('hud').classList.add('hidden');$('controls').classList.add('hidden');
 }
 function collide(c){
- if(crashing||over)return;
- crashing=true;running=false;held=0;gameOverTimer=1.65;
- const px=carX(playerX),py=H*.79;
- playerWreck={x:px,y:py,angle:playerAngle,vx:random(-18,18),vy:-random(95,145),spin:random(-1.6,1.6)};
- let dir=Math.random()<.5?-1:1;
- if(c.lane<.65)dir=1;else if(c.lane>2.35)dir=-1;
- c.wreck=true;c.offset=0;c.vx=dir*random(75,135);c.vy=random(35,90);c.angle=dir*random(.25,.6);c.spin=dir*random(1.2,2.4);
- burst((px+carX(c.lane))/2,py-8);
+if(crashing||over)return;
+crashing=true;running=false;held=0;gameOverTimer=1.65;
+const px=carX(playerX),py=H*.79;
+playerWreck={x:px,y:py,angle:playerAngle,vx:random(-18,18),vy:-random(95,145),spin:random(-1.6,1.6)};
+let dir=Math.random()<.5?-1:1;if(c.lane<.65)dir=1;else if(c.lane>2.35)dir=-1;
+c.wreck=true;c.offset=0;c.vx=dir*random(75,135);c.vy=random(35,90);c.angle=dir*random(.25,.6);c.spin=dir*random(1.2,2.4);
+burst((px+carX(c.lane))/2,py-8);
 }
 function togglePause(){
- if(!running||over||crashing)return;
- paused=!paused;held=0;
- if(paused){
-  $('messageTitle').textContent='PAUSED';$('messageText').textContent='Игра приостановлена';
-  $('resume').classList.remove('hidden');$('message').classList.remove('hidden');
- }else $('message').classList.add('hidden');
- last=performance.now();
+if(!running||over||crashing)return;paused=!paused;held=0;
+if(paused){$('messageTitle').textContent='PAUSED';$('messageText').textContent='Игра приостановлена';$('resume').classList.remove('hidden');$('message').classList.remove('hidden')}
+else $('message').classList.add('hidden');
+last=performance.now();
 }
 function bindButton(id,dir){
- const b=$(id);
- function release(){held=0;b.classList.remove('active')}
- b.addEventListener('pointerdown',e=>{
-  e.preventDefault();if(!running||paused||over||crashing)return;
-  held=dir;b.classList.add('active');
-  try{b.setPointerCapture(e.pointerId)}catch(err){}
- });
- b.addEventListener('pointerup',release);b.addEventListener('pointercancel',release);b.addEventListener('lostpointercapture',release);
+const b=$(id);function release(){held=0;b.classList.remove('active')}
+b.addEventListener('pointerdown',e=>{e.preventDefault();if(!running||paused||over||crashing)return;held=dir;b.classList.add('active');try{b.setPointerCapture(e.pointerId)}catch(err){}});
+b.addEventListener('pointerup',release);b.addEventListener('pointercancel',release);b.addEventListener('lostpointercapture',release);
 }
 bindButton('left',-1);bindButton('right',1);
-$('play').onclick=startGame;
-$('openGarage').onclick=showGarage;
-$('backMenu').onclick=showMenu;
-$('pause').onclick=togglePause;
-$('resume').onclick=togglePause;
-$('restart').onclick=startGame;
-$('toMenu').onclick=showMenu;
+$('play').onclick=startGame;$('openGarage').onclick=showGarage;$('backMenu').onclick=showMenu;
+$('pause').onclick=togglePause;$('resume').onclick=togglePause;$('restart').onclick=startGame;$('toMenu').onclick=showMenu;
 
 function update(dt){
- if(paused||over)return;
- roadScroll=(roadScroll+speed*dt)%70;
- if(crashing){
-  playerWreck.x+=playerWreck.vx*dt;playerWreck.y+=playerWreck.vy*dt;
-  playerWreck.vy*=Math.pow(.88,dt);playerWreck.angle+=playerWreck.spin*dt;playerWreck.spin*=Math.pow(.5,dt);
-  for(const c of traffic)if(c.wreck){
-   c.offset+=c.vx*dt;c.y+=c.vy*dt;c.vx*=Math.pow(.55,dt);c.vy*=Math.pow(.7,dt);
-   c.angle+=c.spin*dt;c.spin*=Math.pow(.45,dt);
-   c.offset=clamp(c.offset,leftEdge()+laneWidth()*.35-carX(c.lane),leftEdge()+roadWidth()-laneWidth()*.35-carX(c.lane));
-  }
-  for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=Math.pow(.35,dt);p.vy*=Math.pow(.45,dt);p.life-=dt}
-  particles=particles.filter(p=>p.life>0);
-  gameOverTimer-=dt;if(gameOverTimer<=0)finishGame();return;
- }
- if(skidCooldown>0)skidCooldown-=dt;
- if(skidTimer>0){skidTimer-=dt;playerX+=skidDir*1.85*dt;playerAngle=-skidDir*.62}
- else{playerX+=held*2.3*dt;playerAngle+=( -held*.13-playerAngle)*(1-Math.exp(-5*dt))}
- playerX=clamp(playerX,0,3);
- speed=Math.min(440,250+score*.35);
- spawn-=dt;oilSpawn-=dt;coinSpawn-=dt;
-
- if(spawn<=0){
-  const l=Math.floor(Math.random()*4);
-  traffic.push({lane:l,y:-80,color:['#ed9b48','#a98bf2','#e45c68','#e0dfd2'][Math.floor(Math.random()*4)],wreck:false,offset:0,vx:0,vy:0,angle:0,spin:0});
-  spawn=Math.max(.48,1.05-score*.003)+Math.random()*.25;
- }
- if(oilSpawn<=0){oils.push({lane:Math.floor(Math.random()*4),y:-40,angle:random(-.6,.6)});oilSpawn=4+Math.random()*4}
- if(coinSpawn<=0){
-  coins.push({lane:Math.floor(Math.random()*4),y:-30,spin:0});
-  coinSpawn=1.1+Math.random()*1.2;
- }
- const py=H*.79,ph=Math.min(H*.09,68);
- for(let i=traffic.length-1;i>=0;i--){
-  const c=traffic[i];if(c.wreck)continue;
-  c.y+=speed*dt;
-  if(c.y>H+90){traffic.splice(i,1);continue}
-  if(Math.abs(carX(c.lane)-carX(playerX))<laneWidth()*.48&&Math.abs(c.y-py)<ph*.82){collide(c);break}
- }
- for(let i=oils.length-1;i>=0;i--){
-  const o=oils[i];o.y+=speed*dt;
-  if(o.y>H+40){oils.splice(i,1);continue}
-  if(Math.abs(carX(o.lane)-carX(playerX))<laneWidth()*.43&&Math.abs(o.y-py)<19&&skidCooldown<=0){
-   skidDir=Math.random()<.5?-1:1;skidTimer=1.15;skidCooldown=2.2;oils.splice(i,1);
-  }
- }
- for(let i=coins.length-1;i>=0;i--){
-  const c=coins[i];c.y+=speed*dt;c.spin+=dt*5;
-  if(c.y>H+30){coins.splice(i,1);continue}
-  if(Math.abs(carX(c.lane)-carX(playerX))<laneWidth()*.42&&Math.abs(c.y-py)<38){
-   coins.splice(i,1);collectCoin();
-  }
- }
- if(skidTimer>0){
-  const cx=carX(playerX),yy=H*.79+23;
-  tireMarks.push({x:cx-laneWidth()*.16,y:yy,life:1.05},{x:cx+laneWidth()*.16,y:yy,life:1.05});
- }
- for(let i=tireMarks.length-1;i>=0;i--){const m=tireMarks[i];m.y+=speed*dt;m.life-=dt;if(m.life<=0||m.y>H+20)tireMarks.splice(i,1)}
- for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt}
- particles=particles.filter(p=>p.life>0);
- score+=Math.floor(dt*10);
- $('score').textContent=score;
+if(paused||over)return;
+roadScroll=(roadScroll+speed*dt)%70;
+textureScroll=(textureScroll+speed*dt)%Math.max(1,roadTexture.height*roadWidth()/Math.max(1,roadTexture.width));
+if(crashing){
+playerWreck.x+=playerWreck.vx*dt;playerWreck.y+=playerWreck.vy*dt;playerWreck.vy*=Math.pow(.88,dt);playerWreck.angle+=playerWreck.spin*dt;playerWreck.spin*=Math.pow(.5,dt);
+for(const c of traffic)if(c.wreck){c.offset+=c.vx*dt;c.y+=c.vy*dt;c.vx*=Math.pow(.55,dt);c.vy*=Math.pow(.7,dt);c.angle+=c.spin*dt;c.spin*=Math.pow(.45,dt);c.offset=clamp(c.offset,leftEdge()+laneWidth()*.35-carX(c.lane),leftEdge()+roadWidth()-laneWidth()*.35-carX(c.lane))}
+for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=Math.pow(.35,dt);p.vy*=Math.pow(.45,dt);p.life-=dt}
+particles=particles.filter(p=>p.life>0);gameOverTimer-=dt;if(gameOverTimer<=0)finishGame();return;
+}
+if(skidCooldown>0)skidCooldown-=dt;
+if(skidTimer>0){skidTimer-=dt;playerX+=skidDir*1.85*dt;playerAngle=-skidDir*.62}
+else{playerX+=held*2.3*dt;playerAngle+=(-held*.13-playerAngle)*(1-Math.exp(-5*dt))}
+playerX=clamp(playerX,0,3);speed=Math.min(440,250+score*.35);
+spawn-=dt;oilSpawn-=dt;coinSpawn-=dt;
+if(spawn<=0){const l=Math.floor(Math.random()*4);traffic.push({lane:l,y:-80,color:['#ed9b48','#a98bf2','#e45c68','#e0dfd2'][Math.floor(Math.random()*4)],wreck:false,offset:0,vx:0,vy:0,angle:0,spin:0});spawn=Math.max(.48,1.05-score*.003)+Math.random()*.25}
+if(oilSpawn<=0){oils.push({lane:Math.floor(Math.random()*4),y:-40,angle:random(-.6,.6)});oilSpawn=4+Math.random()*4}
+if(coinSpawn<=0){coins.push({lane:Math.floor(Math.random()*4),y:-30,spin:0});coinSpawn=1.1+Math.random()*1.2}
+const py=H*.79,ph=Math.min(H*.09,68);
+for(let i=traffic.length-1;i>=0;i--){const c=traffic[i];if(c.wreck)continue;c.y+=speed*dt;if(c.y>H+90){traffic.splice(i,1);continue}if(Math.abs(carX(c.lane)-carX(playerX))<laneWidth()*.48&&Math.abs(c.y-py)<ph*.82){collide(c);break}}
+for(let i=oils.length-1;i>=0;i--){const o=oils[i];o.y+=speed*dt;if(o.y>H+40){oils.splice(i,1);continue}if(Math.abs(carX(o.lane)-carX(playerX))<laneWidth()*.43&&Math.abs(o.y-py)<19&&skidCooldown<=0){skidDir=Math.random()<.5?-1:1;skidTimer=1.15;skidCooldown=2.2;oils.splice(i,1)}}
+for(let i=coins.length-1;i>=0;i--){const c=coins[i];c.y+=speed*dt;c.spin+=dt*5;if(c.y>H+30){coins.splice(i,1);continue}if(Math.abs(carX(c.lane)-carX(playerX))<laneWidth()*.42&&Math.abs(c.y-py)<38){coins.splice(i,1);collectCoin()}}
+if(skidTimer>0){const cx=carX(playerX),yy=H*.79+23;tireMarks.push({x:cx-laneWidth()*.16,y:yy,life:1.05},{x:cx+laneWidth()*.16,y:yy,life:1.05})}
+for(let i=tireMarks.length-1;i>=0;i--){const m=tireMarks[i];m.y+=speed*dt;m.life-=dt;if(m.life<=0||m.y>H+20)tireMarks.splice(i,1)}
+for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt}particles=particles.filter(p=>p.life>0);
+score+=Math.floor(dt*10);$('score').textContent=score;
 }
 function frame(t){
- const dt=Math.min((t-last)/1000||0,.035);last=t;
- if((running&&!paused)||crashing)update(dt);
- draw();requestAnimationFrame(frame);
+const dt=Math.min((t-last)/1000||0,.035);last=t;
+if((running&&!paused)||crashing)update(dt);
+draw();requestAnimationFrame(frame);
 }
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&running&&!paused&&!crashing)togglePause()});
 updateWallet();requestAnimationFrame(t=>{last=t;frame(t)});
